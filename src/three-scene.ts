@@ -16,14 +16,14 @@ import {
   Scene,
 } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { attribute, uniform, vec3, vec4 } from 'three/tsl'
-import { MeshBasicNodeMaterial, MeshStandardNodeMaterial, WebGPURenderer } from 'three/webgpu'
+import { attribute, uniform, vec4 } from 'three/tsl'
+import { MeshStandardNodeMaterial, WebGPURenderer } from 'three/webgpu'
 
 import { AO_ATTRIBUTE } from './ao-format'
 
-export type ViewMode = 'ao' | 'plain' | 'field'
+export type ViewMode = 'ao' | 'plain'
 
-const BASE_COLOR = '#b9b2a6'
+const BASE_COLOR = '#b8b8b8'
 const aoIntensity = uniform(1)
 const aoNode = vec4(attribute(AO_ATTRIBUTE, 'vec4')).x.sub(1).mul(aoIntensity).add(1)
 
@@ -54,9 +54,6 @@ const plainLit = new MeshStandardNodeMaterial({
   metalness: 0,
   flatShading: true,
 })
-// Field view shows the same intensity-adjusted AO term the lit material uses, so the slider drives it too.
-const aoField = new MeshBasicNodeMaterial()
-aoField.colorNode = vec3(aoNode)
 
 // Magenta overlay of edges the refine pass ADDED: any edge touching a vertex with no original vertex within
 // ~`cell` (a 27-cell spatial hash). Lines are lifted along the normal so they don't z-fight the surface.
@@ -119,18 +116,18 @@ const buildAddedEdges = (refined: BufferGeometry, original: BufferGeometry): Lin
 }
 
 const apply = () => {
-  if (!originalGeom || !refinedGeom) return
-  mesh.visible = true
+  // Plain (No AO) needs only the base geometry, so it can render before any bake. AO needs the refined
+  // mesh and stays hidden until a bake provides it. The added-edge overlay rides on top of either.
   if (view === 'plain') {
+    if (!originalGeom) return
     mesh.geometry = originalGeom
     mesh.material = plainLit
-  } else if (view === 'field') {
-    mesh.geometry = refinedGeom
-    mesh.material = aoField
   } else {
+    if (!refinedGeom) return
     mesh.geometry = refinedGeom
     mesh.material = aoLit
   }
+  mesh.visible = true
   if (edges) edges.visible = showEdges
 }
 
@@ -145,10 +142,11 @@ export const initScene = async (container: HTMLElement) => {
   camera.position.set(9, 13, 10.5)
 
   scene.add(new AmbientLight(0xffffff, 0.7))
-  const sun = new DirectionalLight(0xfff2e0, 1.25)
+  // Neutral white lights so the gray material reads as true grayscale (no warm/cool tint).
+  const sun = new DirectionalLight(0xffffff, 1.25)
   sun.position.set(6, 10, 4)
   scene.add(sun)
-  const fill = new DirectionalLight(0xbcd0ff, 0.25)
+  const fill = new DirectionalLight(0xffffff, 0.25)
   fill.position.set(-6, 4, -6)
   scene.add(fill)
 
@@ -197,6 +195,12 @@ export const setWorld = (original: BufferGeometry, refined: BufferGeometry) => {
     edges.visible = showEdges
     scene.add(edges)
   }
+  apply()
+}
+
+// Show the base (No AO) mesh before any bake — the plain view needs only the original geometry.
+export const setBaseMesh = (original: BufferGeometry) => {
+  originalGeom = original
   apply()
 }
 

@@ -263,6 +263,11 @@
     @apply text-cyan-ink font-mono text-xs;
   }
 
+  /* Param label with a hover hint: dashed underline + help cursor + native title tooltip */
+  .param-label {
+    @apply text-ink-muted decoration-ink-faint/70 cursor-help underline decoration-dashed decoration-1 underline-offset-4;
+  }
+
   /* Angular segmented control: active segment is a solid cyan slab */
   .seg {
     @apply border-hair clip-notch-br-sm flex overflow-hidden border;
@@ -272,8 +277,12 @@
     @apply text-ink-muted font-display flex-1 cursor-pointer border-0 bg-transparent px-3 py-2 text-[0.7rem] tracking-[0.12em] uppercase transition-colors;
   }
 
-  .seg button:hover {
+  .seg button:not(:disabled):hover {
     @apply text-cyan-ink;
+  }
+
+  .seg button:disabled {
+    @apply cursor-not-allowed opacity-40;
   }
 
   .seg button.is-active {
@@ -294,7 +303,7 @@
   }
 
   input[type='range'] {
-    @apply accent-cyan w-full;
+    @apply accent-cyan;
   }
 
   .stat {
@@ -317,4 +326,40 @@
   .pill:hover {
     @apply border-cyan text-cyan-ink;
   }
+
+  /* Primary CTA — the brand's filled cyan button (the bake action) */
+  .btn-primary {
+    @apply border-cyan bg-cyan clip-notch-br-sm font-display w-full cursor-pointer border px-4 py-3 text-center text-[0.78rem] font-semibold tracking-[0.18em] text-black uppercase transition-colors;
+  }
+
+  .btn-primary:hover {
+    @apply text-cyan-ink bg-transparent;
+  }
+
+  .btn-primary:disabled {
+    @apply cursor-default opacity-55;
+  }
+}
+
+/* Thin custom cyan scrollbar for the sidebar scroll area */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-cyan) transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--color-cyan);
+  border-radius: 9999px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-cyan-bright);
 }
