@@ -1,14 +1,11 @@
 # AVAO — Adaptive Vertex AO
 
-A single-page showcase of a technique for baking **ambient occlusion into a mesh that has been re-meshed for
+AVAO is a technique for baking **ambient occlusion into a mesh that has been re-meshed for
 the AO signal**: vertices cluster where occlusion actually varies (contact creases, corners) and disappear
 across flat-lit faces. No lightmap, no UVs, no second texture — just **one byte of AO per vertex**, folded into
 the ambient term in the shader.
 
-The demo bakes a small procedural "courtyard" in your browser (WebGPU) and lets you flip between the lit
-result, the bare original mesh, and the raw AO field, plus an overlay of the edges the refine pass added.
-
-→ **https://github.com/verekia/avao**
+**Disclaimer**: This project is vibe coded. The code has not been reviewed. Use as your own risk.
 
 ## The problem
 
@@ -38,7 +35,7 @@ Subdivision level only sets bake precision; the **decimation error threshold** i
 sharper AO and a small mesh aren't a tradeoff, they're the same objective (fewest vertices that still hold the
 signal).
 
-## The artifact ("cuts")
+## The artifact
 
 The shipped file doesn't contain geometry. For each surviving vertex it stores the **three original vertices it
 sits between**, the barycentric weights, and one AO byte — plus the refined index buffer. At load, positions are
@@ -46,8 +43,7 @@ rebuilt by interpolating the base mesh (already in memory), so nothing geometric
 ref/bary/AO streams gzip far better than raw positions. Normals are recomputed at load; welding stayed within
 coplanar faces, so they come back flat for free.
 
-(The same pipeline can instead ship the refined geometry outright — simpler, larger. The "cuts" form here is
-the compact one.)
+The same pipeline can instead ship the refined geometry outright — simpler, larger.
 
 ## Run it
 
@@ -69,7 +65,7 @@ decimation. Everything — generate world, bake, serialize, reconstruct, render 
 
 - `src/world.ts` — the procedural courtyard (flat-shaded boxes).
 - `src/ao-bake.ts` — weld → subdivide → bake → decimate.
-- `src/ao-format.ts` — the compact "cuts" artifact (serialize / parse / rebuild from the base mesh).
+- `src/ao-format.ts` — the compact blueprint artifact (serialize / parse / rebuild from the base mesh).
 - `src/three-scene.ts` — the WebGPU/TSL preview and the AO node.
 - `src/main-init.ts` — glue: build → bake → wire controls + stats.
 
