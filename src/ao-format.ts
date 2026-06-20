@@ -24,6 +24,14 @@ export type ParsedAoEntry = {
 export const serializeAo = (entry: AoMeshEntry): ArrayBuffer => {
   const verts = entry.vertCount
   const tris = entry.indices.length / 3
+  // parentVerts ship as u16 (they index the base mesh), so a base mesh over 65535 verts would wrap silently
+  // (setUint16 mod 65536) and reconstruct scrambled geometry at load — fail loudly instead. Indices are u32,
+  // so the refined vertex count itself is unbounded here.
+  for (let i = 0; i < entry.parentVerts.length; i++) {
+    if (entry.parentVerts[i]! > 0xffff) {
+      throw new Error(`serializeAo: base-mesh vertex index ${entry.parentVerts[i]} over the u16 limit (65535)`)
+    }
+  }
   const size = 4 + 4 + 4 + verts * 6 + verts * 4 + verts + tris * 12
   const buffer = new ArrayBuffer(size)
   const view = new DataView(buffer)
