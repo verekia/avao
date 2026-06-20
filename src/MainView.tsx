@@ -58,7 +58,7 @@ export const MainView = () => {
               <div className="ctl">
                 <span className="ctl-label">AO intensity</span>
                 <span className="ctl-value" id="intensity-value">
-                  2.0
+                  1.4
                 </span>
               </div>
               <input
@@ -68,7 +68,7 @@ export const MainView = () => {
                 min="0"
                 max="3"
                 step="0.1"
-                defaultValue="2"
+                defaultValue="1.4"
               />
             </div>
 

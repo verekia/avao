@@ -36,14 +36,14 @@ export type AoBakeOptions = {
 }
 
 export const AO_DEFAULTS: Required<AoBakeOptions> = {
-  rays: 80,
-  maxDist: 2.5,
-  bias: 0.02,
-  strength: 1.5,
+  rays: 160, // more samples → smoother field, less banding (the dents were amplified low-sample variance)
+  maxDist: 4, // a softer, lower-contrast falloff so the per-vertex variance doesn't read as dents
+  bias: 0.03,
+  strength: 1.3,
   floor: 0,
   subdivLevel: 6,
   subdivMaxEdge: 0.4,
-  decimateError: 0.02,
+  decimateError: 0.015, // keep the gradient a bit denser so it interpolates smoothly
   aoWeight: 4,
 }
 

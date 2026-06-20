@@ -39,9 +39,21 @@ let refinedGeom: BufferGeometry | null = null
 let view: ViewMode = 'ao'
 let showEdges = false
 
-const aoLit = new MeshStandardNodeMaterial({ color: new Color(BASE_COLOR), roughness: 1, metalness: 0 })
+// flatShading derives the face normal from screen-space derivatives, so the (occasionally sliver) vertex
+// normals the decimator + computeVertexNormals produce can't dent the shading — and it suits the faceted look.
+const aoLit = new MeshStandardNodeMaterial({
+  color: new Color(BASE_COLOR),
+  roughness: 1,
+  metalness: 0,
+  flatShading: true,
+})
 aoLit.aoNode = aoNode
-const plainLit = new MeshStandardNodeMaterial({ color: new Color(BASE_COLOR), roughness: 1, metalness: 0 })
+const plainLit = new MeshStandardNodeMaterial({
+  color: new Color(BASE_COLOR),
+  roughness: 1,
+  metalness: 0,
+  flatShading: true,
+})
 const aoField = new MeshBasicNodeMaterial()
 aoField.colorNode = vec3(vec4(attribute(AO_ATTRIBUTE, 'vec4')).x)
 
@@ -147,7 +159,7 @@ export const initScene = async (container: HTMLElement) => {
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.target.set(0, 0.9, -0.5)
-  controls.minDistance = 6
+  controls.minDistance = 2.5
   controls.maxDistance = 40
 
   const resize = () => {
