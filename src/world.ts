@@ -89,6 +89,94 @@ const addBox = (
   }
 }
 
+// A single manifold staircase solid — NOT stacked boxes (those bury a coincident face between every step). It
+// climbs toward -z: `steps` treads, each `run` deep and `rise` tall, `width` wide, the bottom riser at `frontZ`,
+// sitting on `baseY`. Emitted as flat per-face quads (riser + tread per step, two stepped sides, a back and a
+// bottom), so the surface is closed with no internal faces to z-fight or confuse the bake.
+const addStairs = (
+  pos: number[],
+  nrm: number[],
+  cx: number,
+  frontZ: number,
+  baseY: number,
+  width: number,
+  steps: number,
+  run: number,
+  rise: number,
+) => {
+  const x0 = cx - width / 2
+  const x1 = cx + width / 2
+  const backZ = frontZ - steps * run
+  const topY = baseY + steps * rise
+  const quad = (c: number[][], n: number[]) => {
+    for (const tri of [[0, 1, 2] as const, [0, 2, 3] as const])
+      for (const idx of tri) {
+        pos.push(c[idx]![0]!, c[idx]![1]!, c[idx]![2]!)
+        nrm.push(n[0]!, n[1]!, n[2]!)
+      }
+  }
+  for (let s = 0; s < steps; s++) {
+    const zf = frontZ - s * run
+    const zb = frontZ - (s + 1) * run
+    const yb = baseY + s * rise
+    const yt = baseY + (s + 1) * rise
+    quad(
+      [
+        [x0, yb, zf],
+        [x1, yb, zf],
+        [x1, yt, zf],
+        [x0, yt, zf],
+      ],
+      [0, 0, 1],
+    ) // riser
+    quad(
+      [
+        [x0, yt, zf],
+        [x1, yt, zf],
+        [x1, yt, zb],
+        [x0, yt, zb],
+      ],
+      [0, 1, 0],
+    ) // tread
+    quad(
+      [
+        [x1, baseY, zf],
+        [x1, baseY, zb],
+        [x1, yt, zb],
+        [x1, yt, zf],
+      ],
+      [1, 0, 0],
+    ) // right side
+    quad(
+      [
+        [x0, baseY, zb],
+        [x0, baseY, zf],
+        [x0, yt, zf],
+        [x0, yt, zb],
+      ],
+      [-1, 0, 0],
+    ) // left side
+  }
+  quad(
+    [
+      [x0, baseY, backZ],
+      [x1, baseY, backZ],
+      [x1, baseY, frontZ],
+      [x0, baseY, frontZ],
+    ],
+    [0, -1, 0],
+  ) // bottom
+  quad(
+    [
+      [x1, baseY, backZ],
+      [x0, baseY, backZ],
+      [x0, topY, backZ],
+      [x1, topY, backZ],
+    ],
+    [0, 0, -1],
+  ) // back
+}
+
 export const buildWorld = (): BufferGeometry => {
   const pos: number[] = []
   const nrm: number[] = []
@@ -109,10 +197,8 @@ export const buildWorld = (): BufferGeometry => {
   box(-2.5, 0.75, 3, 1.5, 1.5, 1.5)
   box(4.2, 0.4, 4, 0.8, 0.8, 0.8)
 
-  // staircase climbing toward the back wall
-  box(0, 0.25, -3.4, 3.2, 0.5, 0.8)
-  box(0, 0.5, -4.2, 3.2, 1, 0.8)
-  box(0, 0.75, -5, 3.2, 1.5, 0.8)
+  // staircase climbing toward the back wall — one manifold solid (see addStairs), not stacked boxes
+  addStairs(pos, nrm, 0, -3, 0, 3.2, 3, 0.8, 0.5)
 
   // pillars
   box(-4.4, 1.5, -2.2, 0.7, 3, 0.7)
