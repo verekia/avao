@@ -159,7 +159,7 @@ export const initScene = async (container: HTMLElement) => {
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.target.set(0, 0.9, -0.5)
-  controls.minDistance = 2.5
+  controls.minDistance = 1.0
   controls.maxDistance = 40
 
   const resize = () => {
@@ -175,6 +175,7 @@ export const initScene = async (container: HTMLElement) => {
   resize()
 
   await renderer.init()
+  ;(window as unknown as { __avao?: unknown }).__avao = { camera, controls }
   renderer.setAnimationLoop(() => {
     if (!renderer) return
     controls.update()

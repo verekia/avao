@@ -19,7 +19,7 @@
 // base mesh at load. Normals are recomputed at load; welding stays within coplanar faces, so they come back
 // flat for free.
 
-import { BufferAttribute, BufferGeometry, DoubleSide, Ray, Vector3 } from 'three'
+import { BufferAttribute, BufferGeometry, FrontSide, Ray, Vector3 } from 'three'
 import { MeshoptSimplifier } from 'meshoptimizer'
 import { MeshBVH } from 'three-mesh-bvh'
 
@@ -36,14 +36,14 @@ export type AoBakeOptions = {
 }
 
 export const AO_DEFAULTS: Required<AoBakeOptions> = {
-  rays: 160, // more samples → smoother field, less banding (the dents were amplified low-sample variance)
-  maxDist: 4, // a softer, lower-contrast falloff so the per-vertex variance doesn't read as dents
+  rays: 160, // hemisphere samples per vertex — more is smoother, costs bake time
+  maxDist: 4, // AO reach in world units
   bias: 0.03,
   strength: 1.3,
   floor: 0,
   subdivLevel: 6,
   subdivMaxEdge: 0.4,
-  decimateError: 0.015, // keep the gradient a bit denser so it interpolates smoothly
+  decimateError: 0.015,
   aoWeight: 4,
 }
 
@@ -243,7 +243,11 @@ const bakeVertexAo = (core: Core, bvh: MeshBVH, dirs: Float32Array, opt: Require
       dir.set(T.x * dx + B.x * dy + N.x * dz, T.y * dx + B.y * dy + N.y * dz, T.z * dx + B.z * dy + N.z * dz)
       ray.origin.copy(P).addScaledVector(N, opt.bias)
       ray.direction.copy(dir)
-      const hit = bvh.raycastFirst(ray, DoubleSide, 0, opt.maxDist)
+      // FrontSide only: a biased origin sits outside every closed solid, so a real occluder is always entered
+      // through its outward (front) face. Back-faces are seen only when the origin has slipped inside a solid —
+      // which happens at y=0 seams where a box base is coincident with the floor (or stairs/walls overlap). With
+      // DoubleSide those interior back-walls counted as full occlusion and baked black spikes (the "dents").
+      const hit = bvh.raycastFirst(ray, FrontSide, 0, opt.maxDist)
       if (hit) occ += 1 - hit.distance / opt.maxDist
     }
     let val = 1 - occ / opt.rays

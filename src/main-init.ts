@@ -39,6 +39,7 @@ export const init = async () => {
   const parsed = parseAo(raw)
   if (!parsed) return
   const refined = buildRefinedGeometry(parsed, world)
+  ;(window as unknown as { __dbg?: unknown }).__dbg = { entry, refined, world }
 
   setWorld(world, refined)
   if (status) status.remove()
