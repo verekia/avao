@@ -19,7 +19,7 @@
 // base mesh at load. Normals are recomputed at load; welding stays within coplanar faces, so they come back
 // flat for free.
 
-import { BufferAttribute, BufferGeometry, FrontSide, Ray, Vector3 } from 'three'
+import { BufferAttribute, BufferGeometry, DoubleSide, FrontSide, Ray, Vector3 } from 'three'
 import { MeshoptSimplifier } from 'meshoptimizer'
 import { MeshBVH } from 'three-mesh-bvh'
 
@@ -219,6 +219,37 @@ const cosineHemisphere = (n: number): Float32Array => {
   return out
 }
 
+// A surface point is "buried" when another solid sits on its outward side — e.g. a wall whose base passes
+// through the floor, so its lower strip lives inside the floor slab. FrontSide baking can't see that (it
+// ignores the enclosing solid's back-walls), so a buried point reads fully lit — and that bright value, leaking
+// up through triangles that cross the contact line, is what makes the sawtooth "fangs" along a penetration
+// seam. The test: step just off the surface along +N and cast outward; if the first thing hit is a back-face,
+// we're still inside a solid. Such points are never visible, so forcing them fully occluded turns the seam into
+// a clean dark contact line. Generalises to any interpenetration (no shared edge required).
+const burRay = new Ray()
+const burA = new Vector3()
+const burB = new Vector3()
+const burC = new Vector3()
+const burAB = new Vector3()
+const burAC = new Vector3()
+const burN = new Vector3()
+const vertexBuried = (bvh: MeshBVH, p: Vector3, n: Vector3): boolean => {
+  burRay.origin.copy(p).addScaledVector(n, 1e-3)
+  burRay.direction.copy(n)
+  const hit = bvh.raycastFirst(burRay, DoubleSide)
+  if (!hit || hit.faceIndex == null) return false
+  const geom = bvh.geometry
+  const index = geom.index
+  if (!index) return false
+  const gp = geom.attributes.position as BufferAttribute
+  const f = hit.faceIndex * 3
+  burA.fromBufferAttribute(gp, index.getX(f))
+  burB.fromBufferAttribute(gp, index.getX(f + 1))
+  burC.fromBufferAttribute(gp, index.getX(f + 2))
+  burN.crossVectors(burAB.subVectors(burB, burA), burAC.subVectors(burC, burA))
+  return burN.dot(n) > 0 // hit face points the way we're travelling → its back-face → still inside a solid
+}
+
 const bakeVertexAo = (core: Core, bvh: MeshBVH, dirs: Float32Array, opt: Required<AoBakeOptions>): Float32Array => {
   const count = core.position.length / 3
   const out = new Float32Array(count)
@@ -252,9 +283,50 @@ const bakeVertexAo = (core: Core, bvh: MeshBVH, dirs: Float32Array, opt: Require
     }
     let val = 1 - occ / opt.rays
     val = opt.floor + (1 - opt.floor) * Math.pow(Math.max(0, val), opt.strength)
-    out[i] = Math.max(0, Math.min(1, val))
+    val = Math.max(0, Math.min(1, val))
+    // A vertex inside another solid (a wall whose base passes through the floor) reads falsely LIT under
+    // FrontSide — and only that false brightness fangs the seam. Mark just those (buried AND bright) for fill;
+    // a real contact vertex grazing a coincident plane (a box sitting ON the floor) bakes dark, so it's kept as
+    // is — which keeps the buried test robust to the y=0 boundary ambiguity that would otherwise touch it.
+    out[i] = val > 0.5 && vertexBuried(bvh, P, N) ? -1 : val
   }
   return out
+}
+
+// Buried vertices were left at -1 by the bake. Their own occlusion is meaningless (they're inside a solid), but
+// the triangles that cross the contact seam interpolate between them and the exposed contact verts, so their
+// value still shows right at the seam. Flood the nearest exposed AO inward along the dense-mesh edges, so a
+// buried vert takes the value of the contact vertex it sits under — the seam stays continuous with the real
+// contact shadow. (Forcing them flat-black instead over-darkens the seam into a hard black region that the
+// decimator then collapses into big triangles with diagonal banding.) Fully enclosed islands stay dark.
+const fillBuriedAo = (core: Core, ao: Float32Array) => {
+  const vcount = ao.length
+  const adj: number[][] = Array.from({ length: vcount }, () => [])
+  const idx = core.index
+  for (let t = 0; t < idx.length; t += 3) {
+    const a = idx[t]!
+    const b = idx[t + 1]!
+    const c = idx[t + 2]!
+    adj[a]!.push(b, c)
+    adj[b]!.push(a, c)
+    adj[c]!.push(a, b)
+  }
+  let frontier: number[] = []
+  for (let i = 0; i < vcount; i++) if (ao[i]! >= 0) frontier.push(i)
+  while (frontier.length) {
+    const next: number[] = []
+    for (const v of frontier) {
+      const av = ao[v]!
+      for (const u of adj[v]!) {
+        if (ao[u]! < 0) {
+          ao[u] = av
+          next.push(u)
+        }
+      }
+    }
+    frontier = next
+  }
+  for (let i = 0; i < vcount; i++) if (ao[i]! < 0) ao[i] = 0
 }
 
 // Attribute-aware QEM decimation. AO rides as a single attribute channel so collapses that distort occlusion
@@ -490,6 +562,7 @@ export const bakeAo = async (geometry: BufferGeometry, options: AoBakeOptions = 
   const lockCount = welded.position.length / 3
   const dense = subdivide(welded, opt.subdivLevel, opt.subdivMaxEdge)
   const aoFloat = bakeVertexAo(dense, bvh, dirs, opt)
+  fillBuriedAo(dense, aoFloat)
   const refined = decimate(dense, aoFloat, lockCount, opt)
   const indices = flipDiagonalsForAo(refined.position, refined.ao, refined.index)
   const parents = computeParents(refined.position, bvh, original.position, original.index)
