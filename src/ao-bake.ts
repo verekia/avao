@@ -366,6 +366,118 @@ const computeParents = (
   return { verts, bary }
 }
 
+// Linear AO interpolation across a triangulated grid leaks the gradient along whichever diagonal each quad was
+// split on. The box faces are all split the same way, so after subdivision the diagonals line up and a contact
+// gradient stacks them into triangular "fangs". Re-pick each interior diagonal to join the closest-AO pair, so
+// it runs ALONG the iso-line rather than across the gradient. The catch: choosing purely on AO can pick a long
+// thin diagonal, and those slivers smear the gradient into broad angular shadows on flat faces. So a flip must
+// ALSO not lower triangle quality — that gate keeps the fang fix while leaving open surfaces untouched. Pure
+// connectivity; positions and AO are unchanged. Gated on coplanarity (hard edges never move) and convexity.
+const triQuality = (position: Float32Array, ia: number, ib: number, ic: number): number => {
+  const ax = position[ia * 3]!
+  const ay = position[ia * 3 + 1]!
+  const az = position[ia * 3 + 2]!
+  const bx = position[ib * 3]!
+  const by = position[ib * 3 + 1]!
+  const bz = position[ib * 3 + 2]!
+  const cx = position[ic * 3]!
+  const cy = position[ic * 3 + 1]!
+  const cz = position[ic * 3 + 2]!
+  const l0 = (bx - ax) ** 2 + (by - ay) ** 2 + (bz - az) ** 2
+  const l1 = (cx - bx) ** 2 + (cy - by) ** 2 + (cz - bz) ** 2
+  const l2 = (ax - cx) ** 2 + (ay - cy) ** 2 + (az - cz) ** 2
+  const ux = bx - ax
+  const uy = by - ay
+  const uz = bz - az
+  const vx = cx - ax
+  const vy = cy - ay
+  const vz = cz - az
+  const crossX = uy * vz - uz * vy
+  const crossY = uz * vx - ux * vz
+  const crossZ = ux * vy - uy * vx
+  const area2 = Math.sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ) // 2 * area
+  const denom = l0 + l1 + l2
+  return denom > 0 ? (2 * Math.sqrt(3) * area2) / denom : 0 // 1 = equilateral, → 0 = sliver
+}
+
+const flipDiagonalsForAo = (position: Float32Array, ao: Uint8Array, index: Uint32Array): Uint32Array => {
+  const out = Uint32Array.from(index)
+  const triCount = out.length / 3
+  const vcount = position.length / 3
+  const va = new Vector3()
+  const vb = new Vector3()
+  const vc = new Vector3()
+  const e1 = new Vector3()
+  const e2 = new Vector3()
+  const n1 = new Vector3()
+  const n2 = new Vector3()
+  const cr = new Vector3()
+  const triNormal = (t: number, target: Vector3) => {
+    const i0 = out[t * 3]!
+    const i1 = out[t * 3 + 1]!
+    const i2 = out[t * 3 + 2]!
+    va.set(position[i0 * 3]!, position[i0 * 3 + 1]!, position[i0 * 3 + 2]!)
+    vb.set(position[i1 * 3]!, position[i1 * 3 + 1]!, position[i1 * 3 + 2]!)
+    vc.set(position[i2 * 3]!, position[i2 * 3 + 1]!, position[i2 * 3 + 2]!)
+    target.crossVectors(e1.subVectors(vb, va), e2.subVectors(vc, va)).normalize()
+  }
+  const windsCcw = (ia: number, ib: number, ic: number, n: Vector3): boolean => {
+    va.set(position[ia * 3]!, position[ia * 3 + 1]!, position[ia * 3 + 2]!)
+    vb.set(position[ib * 3]!, position[ib * 3 + 1]!, position[ib * 3 + 2]!)
+    vc.set(position[ic * 3]!, position[ic * 3 + 1]!, position[ic * 3 + 2]!)
+    return cr.crossVectors(e1.subVectors(vb, va), e2.subVectors(vc, va)).dot(n) > 0
+  }
+  for (let pass = 0; pass < 4; pass++) {
+    const edges = new Map<number, { t: number; p: number; q: number; w: number }[]>()
+    for (let t = 0; t < triCount; t++) {
+      const i0 = out[t * 3]!
+      const i1 = out[t * 3 + 1]!
+      const i2 = out[t * 3 + 2]!
+      const dirEdges: [number, number, number][] = [
+        [i0, i1, i2],
+        [i1, i2, i0],
+        [i2, i0, i1],
+      ]
+      for (const [p, q, w] of dirEdges) {
+        const key = p < q ? p * vcount + q : q * vcount + p
+        let arr = edges.get(key)
+        if (!arr) edges.set(key, (arr = []))
+        arr.push({ t, p, q, w })
+      }
+    }
+    const used = new Uint8Array(triCount)
+    let flips = 0
+    for (const arr of edges.values()) {
+      if (arr.length !== 2) continue
+      const [r0, r1] = arr as [(typeof arr)[number], (typeof arr)[number]]
+      if (used[r0.t] || used[r1.t]) continue
+      const p = r0.p
+      const q = r0.q
+      const a = r0.w
+      const b = r1.w
+      if (Math.abs(ao[a]! - ao[b]!) >= Math.abs(ao[p]! - ao[q]!)) continue // alt diagonal doesn't align better
+      triNormal(r0.t, n1)
+      triNormal(r1.t, n2)
+      if (n1.dot(n2) < 0.999) continue // hard edge / non-coplanar quad — leave it
+      if (!windsCcw(q, a, b, n1) || !windsCcw(a, p, b, n1)) continue // would invert a triangle
+      const curQ = Math.min(triQuality(position, p, q, a), triQuality(position, q, p, b))
+      const newQ = Math.min(triQuality(position, q, a, b), triQuality(position, a, p, b))
+      if (newQ < curQ) continue // never trade a fang for a sliver (the angular-shadow failure mode)
+      out[r0.t * 3] = q
+      out[r0.t * 3 + 1] = a
+      out[r0.t * 3 + 2] = b
+      out[r1.t * 3] = a
+      out[r1.t * 3 + 1] = p
+      out[r1.t * 3 + 2] = b
+      used[r0.t] = 1
+      used[r1.t] = 1
+      flips++
+    }
+    if (flips === 0) break
+  }
+  return out
+}
+
 export const bakeAo = async (geometry: BufferGeometry, options: AoBakeOptions = {}): Promise<AoMeshEntry> => {
   const opt = { ...AO_DEFAULTS, ...options }
   if (MeshoptSimplifier.supported) await MeshoptSimplifier.ready
@@ -379,6 +491,7 @@ export const bakeAo = async (geometry: BufferGeometry, options: AoBakeOptions = 
   const dense = subdivide(welded, opt.subdivLevel, opt.subdivMaxEdge)
   const aoFloat = bakeVertexAo(dense, bvh, dirs, opt)
   const refined = decimate(dense, aoFloat, lockCount, opt)
+  const indices = flipDiagonalsForAo(refined.position, refined.ao, refined.index)
   const parents = computeParents(refined.position, bvh, original.position, original.index)
 
   return {
@@ -387,7 +500,7 @@ export const bakeAo = async (geometry: BufferGeometry, options: AoBakeOptions = 
     srcTriCount: original.index.length / 3,
     positions: refined.position,
     ao: refined.ao,
-    indices: refined.index,
+    indices,
     parentVerts: parents.verts,
     parentBary: parents.bary,
   }
