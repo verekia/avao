@@ -54,8 +54,9 @@ const plainLit = new MeshStandardNodeMaterial({
   metalness: 0,
   flatShading: true,
 })
+// Field view shows the same intensity-adjusted AO term the lit material uses, so the slider drives it too.
 const aoField = new MeshBasicNodeMaterial()
-aoField.colorNode = vec3(vec4(attribute(AO_ATTRIBUTE, 'vec4')).x)
+aoField.colorNode = vec3(aoNode)
 
 // Magenta overlay of edges the refine pass ADDED: any edge touching a vertex with no original vertex within
 // ~`cell` (a 27-cell spatial hash). Lines are lifted along the normal so they don't z-fight the surface.
@@ -112,7 +113,7 @@ const buildAddedEdges = (refined: BufferGeometry, original: BufferGeometry): Lin
   if (verts.length === 0) return null
   const geometry = new BufferGeometry()
   geometry.setAttribute('position', new BufferAttribute(new Float32Array(verts), 3))
-  const lines = new LineSegments(geometry, new LineBasicMaterial({ color: 0xff2bb0 }))
+  const lines = new LineSegments(geometry, new LineBasicMaterial({ color: 0x00d9ff }))
   lines.frustumCulled = false
   return lines
 }
@@ -139,7 +140,7 @@ export const initScene = async (container: HTMLElement) => {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
   scene = new Scene()
-  scene.background = new Color('#15171c')
+  scene.background = new Color('#04060a')
   camera = new PerspectiveCamera(46, 1, 0.1, 100)
   camera.position.set(9, 13, 10.5)
 

@@ -1,6 +1,6 @@
 import { AO_DEFAULTS, bakeAo } from './ao-bake'
 import { buildRefinedGeometry, gzipSize, parseAo, serializeAo } from './ao-format'
-import { frameDefault, initScene, setIntensity, setShowEdges, setView, setWorld, type ViewMode } from './three-scene'
+import { initScene, setIntensity, setShowEdges, setView, setWorld, type ViewMode } from './three-scene'
 import { buildWorld } from './world'
 
 let initialized = false
@@ -87,6 +87,4 @@ export const init = async () => {
     edgesBtn.classList.toggle('is-active', edgesOn)
     edgesBtn.textContent = edgesOn ? 'Added edges: on' : 'Added edges: off'
   })
-
-  $('reset')?.addEventListener('click', frameDefault)
 }

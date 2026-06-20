@@ -1,37 +1,207 @@
 @import 'tailwindcss';
 
-@theme {
-  --color-bg-0: #15171c;
-  --color-bg-1: #1c1f26;
-  --color-bg-2: #232730;
-  --color-line: #2c313c;
-  --color-line-2: #3a404d;
-  --color-text: #e7e9ee;
-  --color-text-bright: #f4f6fa;
-  --color-muted: #aab1bf;
-  --color-muted-2: #7b8290;
-  --color-accent: #ff3fb0;
-  --color-accent-2: #8a7bff;
+/* ---------------------------------------------------------------------------
+   Fonts — verekia brand: Orbitron (display) + IBM Plex Sans (body)
+--------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: block;
+  src: url('/fonts/orbitron.woff2') format('woff2');
 }
 
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-sans-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-sans-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-sans-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-sans-700.woff2') format('woff2');
+}
+
+/* ---------------------------------------------------------------------------
+   Theme tokens — verekia "clean sci-fi" dark palette (cyan on near-black)
+--------------------------------------------------------------------------- */
+@theme {
+  --font-display: 'Orbitron', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+
+  /* Surfaces — deep near-black with subtly lifted panels/cards */
+  --color-deep: #04060a;
+  --color-panel: #06080d;
+  --color-card: #0d1118;
+  --color-card-2: #141a26;
+  --color-line: #2a3247;
+  --color-line-bright: #3a4560;
+
+  /* Primary cyan — sRGB fallback; P3 override below */
+  --color-cyan: #00d9ff;
+  --color-cyan-bright: #5cd8ff;
+  --color-cyan-soft: #2a8aa8;
+  --color-accent: #00d9ff;
+
+  /* Text — on the dark hero header */
+  --color-text-primary: #f0f3f7;
+  --color-text-muted: #98a0ad;
+  --color-text-faint: #5e6776;
+
+  /* Light surfaces + "ink" text — for the white panel body */
+  --color-card-light: #f3f5f9;
+  --color-hair: #dde1e8;
+  --color-hair-soft: #edeff3;
+  --color-ink: #0b0e14;
+  --color-ink-muted: #55606e;
+  --color-ink-faint: #8b94a1;
+  /* Cyan tuned for legible text/values on white (bright cyan stays for accents) */
+  --color-cyan-ink: #0094b8;
+
+  /* Inverted slab color used in the diagonal stripe motif */
+  --color-invert: #ffffff;
+}
+
+/* Wider-gamut primary cyan when display P3 is supported */
+@supports (color: color(display-p3 1 0 0)) {
+  :root {
+    --color-cyan: color(display-p3 0 0.85 1);
+    --color-accent: color(display-p3 0 0.85 1);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Animations (ported from the brand)
+--------------------------------------------------------------------------- */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-down-left {
+  from {
+    opacity: 0;
+    transform: translate(16px, -16px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes status-blink {
+  0%,
+  70%,
+  100% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.35;
+  }
+}
+
+@utility animate-fade-up {
+  animation: fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@utility animate-fade-down-left {
+  animation: fade-down-left 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@utility animate-status-blink {
+  animation: status-blink 2s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   Beveled corners + corner triangles — the brand's angular silhouette
+--------------------------------------------------------------------------- */
+@utility clip-notch-br {
+  corner-bottom-right-shape: bevel;
+  border-bottom-right-radius: 22px;
+}
+
+@utility clip-notch-tl {
+  corner-top-left-shape: bevel;
+  border-top-left-radius: 22px;
+}
+
+@utility clip-notch-br-sm {
+  corner-bottom-right-shape: bevel;
+  border-bottom-right-radius: 12px;
+}
+
+@utility clip-tri-tr {
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+
+@utility clip-tri-br {
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+/* Diagonal cyan stripe motif — the brand's signature hero backdrop, scaled
+   for the panel header. Layered -45deg bands: a bright cyan edge line, a cyan
+   wash slab, a thin bright sliver, and a faint wide cyan field. */
+@utility panel-stripes {
+  background-color: var(--color-deep);
+  background-image: linear-gradient(
+    -45deg,
+    transparent 0 22px,
+    var(--color-cyan) 22px 27px,
+    transparent 27px 44px,
+    color-mix(in srgb, var(--color-cyan) 24%, transparent) 44px 104px,
+    transparent 104px 116px,
+    color-mix(in srgb, var(--color-cyan-bright) 85%, transparent) 116px 119px,
+    transparent 119px 168px,
+    color-mix(in srgb, var(--color-cyan) 11%, transparent) 168px 240px,
+    transparent 240px
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Base
+--------------------------------------------------------------------------- */
 @layer base {
   html,
   body {
     @apply h-full;
   }
 
+  html {
+    background: var(--color-deep);
+  }
+
   body {
-    @apply bg-bg-0 text-text m-0;
-    font-family:
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      'Segoe UI',
-      Roboto,
-      Helvetica,
-      Arial,
-      sans-serif;
+    @apply bg-deep text-text-primary m-0;
+    font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   * {
@@ -39,17 +209,46 @@
   }
 
   a {
-    @apply text-accent-2 no-underline;
+    @apply text-cyan no-underline transition-colors;
   }
 
   a:hover {
-    @apply underline;
+    @apply text-cyan-bright;
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Components — AVAO control panel, brand-styled
+--------------------------------------------------------------------------- */
 @layer components {
   .panel {
-    @apply border-line bg-bg-1/90 rounded-xl border backdrop-blur;
+    @apply border-hair clip-notch-tl clip-notch-br border bg-white;
+  }
+
+  /* Section header: cyan Orbitron number + tracked uppercase title + dotted rule */
+  .section-head {
+    @apply mb-3.5 flex items-center gap-3;
+  }
+
+  .section-num {
+    @apply text-cyan font-display text-lg leading-none font-medium;
+  }
+
+  .section-title {
+    @apply text-ink font-display text-xs leading-none font-semibold tracking-[0.2em] uppercase;
+  }
+
+  .section-rule {
+    @apply h-1 min-w-6 flex-1 bg-[radial-gradient(circle,var(--color-text-faint)_1px,transparent_1px)] bg-size-[6px_4px] bg-position-[0_50%] bg-repeat-x opacity-50;
+  }
+
+  /* Beveled card with cyan accent edges, echoing the brand tool cards */
+  .card {
+    @apply border-hair bg-card-light clip-notch-br-sm border;
+  }
+
+  .card-accent {
+    @apply border-r-cyan border-b-cyan;
   }
 
   .ctl {
@@ -57,46 +256,65 @@
   }
 
   .ctl-label {
-    @apply text-muted;
+    @apply text-ink-muted;
   }
 
   .ctl-value {
-    @apply text-muted-2 font-mono text-xs;
+    @apply text-cyan-ink font-mono text-xs;
   }
 
+  /* Angular segmented control: active segment is a solid cyan slab */
   .seg {
-    @apply border-line-2 flex overflow-hidden rounded-lg border;
+    @apply border-hair clip-notch-br-sm flex overflow-hidden border;
   }
 
   .seg button {
-    @apply bg-bg-2 text-muted cursor-pointer border-0 px-3 py-1.5 text-sm;
+    @apply text-ink-muted font-display flex-1 cursor-pointer border-0 bg-transparent px-3 py-2 text-[0.7rem] tracking-[0.12em] uppercase transition-colors;
+  }
+
+  .seg button:hover {
+    @apply text-cyan-ink;
   }
 
   .seg button.is-active {
-    @apply bg-accent text-white;
+    @apply bg-cyan font-medium text-black;
   }
 
+  /* Standalone toggle/button: bordered, uppercase, hover/active → cyan */
   .seg-solo {
-    @apply border-line-2 bg-bg-2 text-muted cursor-pointer rounded-lg border px-3 py-1.5 text-left text-sm;
+    @apply border-hair text-ink-muted clip-notch-br-sm font-display cursor-pointer border bg-white px-4 py-2.5 text-left text-[0.7rem] tracking-[0.12em] uppercase transition-colors;
+  }
+
+  .seg-solo:hover {
+    @apply border-cyan text-cyan-ink;
   }
 
   .seg-solo.is-active {
-    @apply border-accent text-text;
+    @apply border-cyan text-cyan-ink;
   }
 
   input[type='range'] {
-    @apply accent-accent w-40;
+    @apply accent-cyan w-full;
   }
 
   .stat {
     @apply flex items-baseline justify-between gap-4 font-mono text-xs;
   }
 
-  .stat b {
-    @apply text-text;
+  .stat .ctl-label {
+    @apply tracking-wide whitespace-nowrap;
   }
 
+  .stat b {
+    @apply text-cyan-ink font-semibold;
+  }
+
+  /* Pill / external link, beveled with cyan hover */
   .pill {
-    @apply border-line-2 bg-bg-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm;
+    @apply border-hair text-ink-muted clip-notch-br-sm inline-flex items-center gap-2 border bg-white px-3 py-2 text-xs tracking-[0.08em] uppercase transition-colors;
+  }
+
+  .pill:hover {
+    @apply border-cyan text-cyan-ink;
   }
 }
