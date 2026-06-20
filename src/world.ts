@@ -98,9 +98,9 @@ export const buildWorld = (): BufferGeometry => {
   // floor
   box(0, -0.25, 0, 13, 0.5, 13)
 
-  // L of walls (inside corner at back-left)
-  box(-6, 1.25, 0, 0.5, 3, 13)
-  box(0, 1.25, -6, 13, 3, 0.5)
+  // L of walls (inside corner at back-left), sitting on the floor (base at y=0)
+  box(-6, 1.5, 0, 0.5, 3, 13)
+  box(0, 1.5, -6, 13, 3, 0.5)
 
   // crates, including a stacked pair and an adjacent pair (creases between them)
   box(2, 0.6, 2.2, 1.2, 1.2, 1.2)
